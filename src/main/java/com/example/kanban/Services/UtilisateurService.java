@@ -1,14 +1,25 @@
 package com.example.kanban.Services;
 
+import com.example.kanban.Models.PasswordResetToken;
 import com.example.kanban.Models.Utilisateur;
+import com.example.kanban.Repositories.PasswordResetTokenRepository;
 import com.example.kanban.Repositories.UtilisateurRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UtilisateurService {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     private final UtilisateurRepository utilisateurRepository;
 
@@ -43,5 +54,37 @@ public class UtilisateurService {
             return null;
         }
     }
+    @Autowired
+    private PasswordResetTokenRepository tokenRepository;
+
+    public PasswordResetToken createPasswordResetToken(Utilisateur user) {
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken(UUID.randomUUID().toString());
+        token.setUser(user);
+        token.setExpiryDate(LocalDateTime.now().plusHours(1)); // Token valid for 1 hour
+        return tokenRepository.save(token);
+    }
+
+    public Utilisateur getUserByPasswordResetToken(String token) {
+        return tokenRepository.findByToken(token)
+                .filter(t -> t.getExpiryDate().isAfter(LocalDateTime.now()))
+                .map(PasswordResetToken::getUser)
+                .orElse(null);
+    }
+    public Utilisateur findByEmail(String email) {
+        Optional<Utilisateur> utilisateur = utilisateurRepository.findByEmail(email);
+        return utilisateur.orElse(null);
+    }
+    public PasswordResetToken validatePasswordResetToken(String token) {
+        return passwordResetTokenRepository.findByToken(token)
+                .filter(t -> t.getExpiryDate().isAfter(LocalDateTime.now()))
+                .orElse(null);
+    }
+
+    public void updatePassword(Utilisateur user, String newPassword) {
+        user.setPassword(passwordEncoder.encode(newPassword));
+        utilisateurRepository.save(user);
+    }
+
 }
 
