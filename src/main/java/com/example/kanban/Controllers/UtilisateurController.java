@@ -4,6 +4,7 @@ import com.example.kanban.Models.PasswordResetToken;
 import com.example.kanban.Models.Utilisateur;
 import com.example.kanban.Services.EmailService;
 import com.example.kanban.Services.UtilisateurService;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -70,12 +71,26 @@ public class UtilisateurController {
             return ResponseEntity.badRequest().body("User with email " + email + " does not exist.");
         }
         PasswordResetToken token = utilisateurService.createPasswordResetToken(utilisateur);
-        emailService.sendSimpleMessage(
-                email,
-                "Reset Your Password",
-                "Here is your password reset token: " + token.getToken()
-        );
-        return ResponseEntity.ok("Reset token sent to your email.");
+
+        String resetLink = "http://localhost:3000/reset-password?token=" + token.getToken();
+        String htmlContent = "<html>" +
+                "<head><style>" +
+                "body { font-family: Arial, sans-serif; }" +
+                ".button { background-color: #FFC436; color: #191D88; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 16px; }" +
+                "</style></head>" +
+                "<body>" +
+                "<h1>CoWorking Password Reset</h1>" +
+                "<p>You have requested to reset your password. Please click the button below to proceed:</p>" +
+                "<a href='" + resetLink + "' class='button'>Reset Password</a>" +
+                "<p>If you did not request a password reset, please ignore this email.</p>" +
+                "</body></html>";
+
+        try {
+            emailService.sendHtmlMessage(email, "Reset Your Password", htmlContent);
+            return ResponseEntity.ok("Reset link sent to your email.");
+        } catch (MessagingException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send email");
+        }
     }
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
